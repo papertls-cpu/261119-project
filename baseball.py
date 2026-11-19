@@ -12,7 +12,7 @@ plt.rcParams["font.family"] = "Malgun Gothic"
 plt.rcParams["axes.unicode_minus"] = False
 
 # 1. 데이터 불러오기
-df = pd.read_csv("야구_ver1.csv")
+df = pd.read_csv("야구.ver4_구장수정.csv")
 
 st.title("⚾ 야구 관중 수 예측 AI")
 

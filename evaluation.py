@@ -1,6 +1,7 @@
 import pandas as pd
+import streamlit as st
 
-df = pd.read_csv("야구.ver1.csv")
+df = pd.read_csv("야구.ver4_구장수정.csv")
 
 print(df.head())
 print(df.shape)

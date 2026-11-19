@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 
 # csv 파일 불러오기
-df = pd.read_csv("야구.ver2_기온수정.csv")
+df = pd.read_csv("야구.ver4_구장수정.csv")
 
 # 힌트와 정답 나누기
 x = df[["인기도","기온","주말여부","최근10경기팀타율","최근10경기평균자책점","구장수용인원"]]
