@@ -1,4 +1,5 @@
 
+# streamlit run 야구.py
 import streamlit as st
 import pandas as pd
 from sklearn.linear_model import LinearRegression
@@ -71,8 +72,6 @@ if st.button("관중 수 예측하기"):
     new_data = pd.get_dummies(
         new_data, columns=["홈팀", "원정팀"]
     )
-
-    new_data = new_data.reindex(columns=X.columns)
 
     result = model.predict(new_data)[0]
 
