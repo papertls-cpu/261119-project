@@ -36,6 +36,12 @@ model3 = LinearRegression().fit(train[최종특성], y_train)
 예측2 = model2.predict(test[다항특성])
 예측3 = model3.predict(test[최종특성])
 
+# Baseline: 모델을 학습하지 않고 학습 데이터의 평균 관중수만 예측
+baseline_평균 = y_train.mean()
+baseline_예측 = pd.Series(baseline_평균, index=y_test.index)
+baseline_MAE = mean_absolute_error(y_test, baseline_예측)
+기존_MAE = mean_absolute_error(y_test, 예측1)
+
 # 회귀계수에 변수 이름 붙이기
 coef = pd.Series(model1.coef_, index=기본특성)
 표준편차 = X_train.std(ddof=0)
@@ -63,6 +69,21 @@ st.caption('교육용 모의 데이터 | 학습 80%, 테스트 20%')
 # 1. 기존 회귀계수
 if 단계 == '1. 기존 회귀계수':
     st.header('1. 기존 선형회귀의 회귀계수')
+    st.subheader('Baseline과 기존 선형회귀의 예측 오차')
+    st.write('Baseline은 모든 경기의 관중수를 학습 데이터의 평균값으로 예측하는 가장 단순한 기준 모델입니다.')
+    열1, 열2 = st.columns(2)
+    열1.metric('Baseline MAE', f'{baseline_MAE:,.2f}명')
+    열2.metric('기존 선형회귀 MAE', f'{기존_MAE:,.2f}명')
+    st.metric('Baseline 대비 MAE 감소율', f'{(baseline_MAE - 기존_MAE) / baseline_MAE * 100:.1f}%')
+    비교 = pd.Series(
+        [baseline_MAE, 기존_MAE],
+        index=['Baseline (평균값 예측)', '기존 선형회귀'],
+        name='평균 절대 오차(MAE)'
+    )
+    st.bar_chart(비교, horizontal=True)
+    st.caption(f'Baseline 예측값: 매 경기 {baseline_평균:,.0f}명 | 동일한 테스트 데이터 {len(y_test)}경기로 평가')
+    st.divider()
+    st.subheader('기존 선형회귀의 회귀계수')
     st.bar_chart(
         coef.abs().rename(표시이름).sort_values(ascending=False).rename('회귀계수 절댓값'),
         horizontal=True
@@ -106,22 +127,19 @@ elif 단계 == '3. 변수별 산점도 분석':
     st.header('3. 변수별 관중수 관계 분석')
     st.write('선형 영향력이 작게 나타난 팀타율, 평균자책점, 기온을 산점도로 비교합니다.')
 
-    # 동일한 Y축 범위로 비교
     # 팀타율 산점도
     fig, ax = plt.subplots(figsize=(9, 5))
-
     ax.scatter(train['최근10경기팀타율'], y_train, alpha=0.4)
     ax.set_title('팀타율과 관중수')
-
     st.pyplot(fig)
+    plt.close(fig)
 
     # 평균자책점 산점도
     fig, ax = plt.subplots(figsize=(9, 5))
-
-    ax.scatter(train['최근10경기평균자책점'], y_train, alpha= 0.4)
+    ax.scatter(train['최근10경기평균자책점'], y_train, alpha=0.4)
     ax.set_title('평균자책점과 관중수')
-
     st.pyplot(fig)
+    plt.close(fig)
     st.caption('팀타율과 평균자책점은 기온처럼 뚜렷한 포물선 관계가 보이지 않습니다. 산점도는 다른 변수의 영향까지 포함하므로 선형 영향력과 단순 상관관계는 다를 수 있습니다.')
 
     st.subheader('기온과 관중수의 관계')
@@ -137,6 +155,52 @@ elif 단계 == '3. 변수별 산점도 분석':
     평균 = train.groupby(train['기온'].round())['관중수'].mean()
     st.line_chart(평균.rename('평균 관중수'))
     st.write('기온은 선형 영향력이 작지만, 기온별 평균 관중수에서는 비선형 관계가 나타납니다. 이를 반영하기 위해 기온제곱을 추가합니다.')
+
+    # 기온제곱이 2차함수를 만드는 과정 설명
+    st.divider()
+    st.subheader('왜 기온제곱을 추가할까요?')
+    st.write('기존 모델에서는 기온에 대한 항이 하나뿐이므로, 다른 변수를 고정하면 직선으로 나타납니다.')
+    st.latex(r'\hat{y}_{\text{선형}} = bx + C')
+    st.write('하지만 기온제곱을 새로운 독립변수로 추가하면, 기온과 기온제곱에 각각 회귀계수가 붙습니다.')
+    st.code("df['기온제곱'] = df['기온'] ** 2", language='python')
+
+    # 작은 표로 기온이 바뀔 때 제곱값이 어떻게 바뀌는지 보여줌
+    st.latex(r'\hat{y}_{\text{다항}} = ax^2 + bx + C')
+    st.write('여기서 x는 기온, a는 기온제곱의 회귀계수, b는 기온의 회귀계수입니다. '
+             'C는 인기도·주말여부·팀타율·평균자책점·구장수용인원과 절편을 합친 값입니다.')
+    st.write('모델은 모든 변수를 동시에 학습하지만, 그래프를 그릴 때 다른 변수의 값을 고정하면 C가 상수가 되어 기온에 대한 2차함수를 볼 수 있습니다.')
+
+    # 모델이 학습한 실제 계수로 포물선과 꼭짓점 계산
+    다항계수 = pd.Series(model2.coef_, index=다항특성)
+    a = 다항계수['기온제곱']
+    b = 다항계수['기온']
+    st.subheader('실제로 학습된 2차함수')
+    st.write(f'기온제곱의 회귀계수 a = {a:,.2f}, 기온의 회귀계수 b = {b:,.2f}')
+    st.latex(rf'\hat{{y}} = {a:.2f}x^2 + {b:.2f}x + C')
+
+    if a != 0:
+        꼭짓점기온 = -b / (2 * a)
+        if a < 0:
+            st.latex(r'x_{\text{최대}} = -\frac{b}{2a}')
+            st.metric('모델이 계산한 관중수 최대 기온', f'{꼭짓점기온:.2f}℃')
+            st.write('기온제곱의 계수가 음수이므로 아래쪽으로 열리는(∩ 모양) 포물선이 만들어지고, 꼭짓점에서 예측 관중수가 가장 많아집니다.')
+        else:
+            st.latex(r'x_{\text{최소}} = -\frac{b}{2a}')
+            st.metric('포물선의 최솟값에 해당하는 기온', f'{꼭짓점기온:.2f}℃')
+            st.write('기온제곱의 계수가 양수이므로 위쪽으로 열리는(∪ 모양) 포물선이 만들어집니다.')
+
+    # 다른 조건을 동일하게 고정해서 선형회귀와 다항회귀의 기온 반응 비교
+    고정조건 = X_train.mean().to_dict()
+    고정조건['주말여부'] = 0  # 주말여부는 0 또는 1이므로 평일로 고정
+    기온범위 = [15 + 0.25 * i for i in range(65)]
+    그래프입력 = pd.DataFrame([고정조건.copy() for _ in 기온범위])
+    그래프입력['기온'] = 기온범위
+    그래프입력['기온제곱'] = 그래프입력['기온'] ** 2
+
+    st.image("기온에 따른 예측 관중수 변화 그래프.png")
+    st.caption('인기도·팀타율·평균자책점·구장수용인원은 학습 데이터 평균으로, 주말여부는 평일(0)로 고정했습니다. '
+               '이는 다른 변수의 영향을 고정한 모델의 예측 곡선이며, 위의 기온별 실제 평균 관중수 그래프와는 다릅니다.')
+    st.write('이처럼 기온제곱을 추가해 포물선 관계를 학습한 뒤, 다음 4번 화면에서 실제 예측 오차가 줄었는지 확인합니다.')
 
 # 4. 다항회귀 적용 전후: 기온별 잔차 비교
 elif 단계 == '4. 다항회귀 적용':
